@@ -1,6 +1,6 @@
 ﻿using Xunit;
 
-namespace NugetPackageTemplate
+namespace Rebus.Prometheus
 {
     public class Class1Tests
 	{

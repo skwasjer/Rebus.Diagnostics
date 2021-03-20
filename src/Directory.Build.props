@@ -13,7 +13,7 @@
     <Company></Company>
     <Copyright>Copyright © 2021</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/skwasjer/NugetPackageTemplate</RepositoryUrl>
+    <RepositoryUrl>https://github.com/skwasjer/Rebus.Prometheus</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageIcon>Icon64.png</PackageIcon>
   </PropertyGroup>

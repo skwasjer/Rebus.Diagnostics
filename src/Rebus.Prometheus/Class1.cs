@@ -1,4 +1,4 @@
-﻿namespace NugetPackageTemplate
+﻿namespace Rebus.Prometheus
 {
     /// <summary>
     /// 
