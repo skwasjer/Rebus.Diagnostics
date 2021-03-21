@@ -10,6 +10,8 @@ using Prometheus;
 using Rebus.Activation;
 using Rebus.Bus;
 using Rebus.Config;
+using Rebus.Diagnostics.Prometheus.Internal;
+using Rebus.Diagnostics.Prometheus.Messages;
 using Rebus.Extensions;
 using Rebus.Persistence.InMem;
 using Rebus.Pipeline;
@@ -32,8 +34,10 @@ namespace Rebus.Diagnostics.Prometheus
             _waitHandle = new ManualResetEvent(false);
         }
 
-        [Fact]
-        public async Task When_a_batch_of_message_is_sent_it_should_produce_metrics()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task When_a_batch_of_message_is_sent_it_should_produce_metrics(bool messageMetrics)
         {
             int receiveErrors = 0;
             int cmdSuccess = 0;
@@ -86,19 +90,80 @@ namespace Rebus.Diagnostics.Prometheus
             _activator.Handle<TestEvent>((_, ctx, msg) => HandleMessage(ctx, msg));
             _activator.Handle<TestCommand>((_, ctx, msg) => HandleMessage(ctx, msg));
 
-            using IBus bus = ArrangeBus(_activator);
+            using IBus bus = ArrangeBus(_activator, messageMetrics);
             await bus.Subscribe<TestEvent>();
 
             // Act
+            await Task.WhenAll(SendMessages(total, bus, out int cmdCount, out int eventCount));
+            await Task.Delay(5);
+
+            // Assert
+            string[] metrics = await ExportMetricsAsync();
+            metrics.Should().ContainMatch("messaging_workers_total{instance=\"Rebus *\"} 1");
+
+            // Wait for all messages to be processed.
+            _waitHandle.WaitOne(Debugger.IsAttached ? -1 : 30000);
+            await Task.Delay(500);
+
+            string busName = BusNameHelper.GetBusName(bus);
+            string dimensionInstance = $"{{instance=\"{busName}\"}}";
+            string dimensionInstanceEventType = $"{{instance=\"{busName}\",type=\"{typeof(TestEvent).GetSimpleAssemblyQualifiedName()}\"}}";
+            string dimensionInstanceCommandType = $"{{instance=\"{busName}\",type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}}";
+
+            metrics = await ExportMetricsAsync();
+            metrics.Should()
+                .ContainMatch($"messaging_workers_total{dimensionInstance} 1")
+                .And.ContainMatch($"messaging_outgoing_total{dimensionInstance} {cmdCount + eventCount}")
+                .And.ContainMatch($"messaging_outgoing_duration_seconds_count{dimensionInstance} {total}")
+                .And.ContainMatch($"messaging_outgoing_in_flight_total{dimensionInstance} 0")
+                .And.ContainMatch($"messaging_outgoing_duration_seconds_sum{dimensionInstance} *")
+                .And.ContainMatch($"messaging_incoming_total{dimensionInstance} {cmdSuccess + receiveErrors + eventSuccess}")
+                .And.ContainMatch($"messaging_incoming_duration_seconds_count{dimensionInstance} {receiveTotal}")
+                .And.ContainMatch($"messaging_incoming_in_flight_total{dimensionInstance} 0")
+                .And.ContainMatch($"messaging_incoming_aborted_total{dimensionInstance} {receiveErrors}")
+                .And.ContainMatch($"messaging_incoming_duration_seconds_sum{dimensionInstance} *")
+                ;
+
+            if (messageMetrics)
+            {
+                metrics.Should()
+                    .Contain($"messaging_outgoing_type_total{dimensionInstanceEventType} 66")
+                    .And.Contain($"messaging_outgoing_type_total{dimensionInstanceCommandType} 34")
+                    .And.Contain($"messaging_incoming_type_total{dimensionInstanceEventType} {eventCount}")
+                    .And.Contain($"messaging_incoming_type_total{dimensionInstanceCommandType} {cmdCount + receiveErrors}")
+                    .And.Contain($"messaging_incoming_type_error_total{dimensionInstanceCommandType} {receiveErrors}")
+                    ;
+            }
+            else
+            {
+                metrics.Should()
+                    .NotContain($"messaging_outgoing_type_total{dimensionInstanceEventType} 66")
+                    .And.NotContain($"messaging_outgoing_type_total{dimensionInstanceCommandType} 34")
+                    .And.NotContain($"messaging_incoming_type_total{dimensionInstanceEventType} {eventCount}")
+                    .And.NotContain($"messaging_incoming_type_total{dimensionInstanceCommandType} {cmdCount + receiveErrors}")
+                    .And.NotContain($"messaging_incoming_type_error_total{dimensionInstanceCommandType} {receiveErrors}")
+                    ;
+            }
+
+            bus.Dispose();
+            metrics = await ExportMetricsAsync();
+            metrics.Should().ContainMatch("messaging_workers_total{instance=\"Rebus *\"} 0");
+        }
+
+        private static Task[] SendMessages(int total, IBus bus, out int cmdCount, out int eventCount)
+        {
             var sendTasks = new Task[total];
-            int cmdCount = 0;
-            int eventCount = 0;
+            cmdCount = 0;
+            eventCount = 0;
             for (int i = 0; i < total; i++)
             {
                 // 1 in 3 is a command.
                 if (i % 3 == 0)
                 {
-                    sendTasks[i] = bus.Send(new TestCommand { Index = i });
+                    sendTasks[i] = bus.Send(new TestCommand
+                    {
+                        Index = i
+                    });
                     cmdCount++;
                 }
                 else
@@ -108,39 +173,7 @@ namespace Rebus.Diagnostics.Prometheus
                 }
             }
 
-            await Task.WhenAll(sendTasks);
-            await Task.Delay(5);
-
-            // Assert
-            string[] metrics = await ExportMetricsAsync();
-            metrics.Should().Contain("messaging_workers_total{instance=\"Rebus 1\"} 1");
-
-            // Wait for all messages to be processed.
-            _waitHandle.WaitOne(Debugger.IsAttached ? -1 : 30000);
-            await Task.Delay(500);
-
-            metrics = await ExportMetricsAsync();
-            metrics.Should()
-                .Contain("messaging_workers_total{instance=\"Rebus 1\"} 1")
-                .And.Contain($"messaging_outgoing_total {cmdCount + eventCount}")
-                .And.Contain($"messaging_outgoing_duration_seconds_count {total}")
-                .And.Contain("messaging_outgoing_in_flight_total 0")
-                .And.ContainMatch("messaging_outgoing_duration_seconds_sum *")
-                .And.Contain($"messaging_outgoing_type_total{{type=\"{typeof(TestEvent).GetSimpleAssemblyQualifiedName()}\"}} 66")
-                .And.Contain($"messaging_outgoing_type_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} 34")
-                .And.Contain($"messaging_incoming_total {cmdSuccess + receiveErrors + eventSuccess}")
-                .And.Contain($"messaging_incoming_duration_seconds_count {receiveTotal}")
-                .And.Contain("messaging_incoming_in_flight_total 0")
-                .And.Contain($"messaging_incoming_aborted_total {receiveErrors}")
-                .And.ContainMatch("messaging_incoming_duration_seconds_sum *")
-                .And.Contain($"messaging_incoming_type_total{{type=\"{typeof(TestEvent).GetSimpleAssemblyQualifiedName()}\"}} {eventCount}")
-                .And.Contain($"messaging_incoming_type_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} {cmdCount + receiveErrors}")
-                .And.Contain($"messaging_incoming_type_error_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} {receiveErrors}")
-                ;
-
-            bus.Dispose();
-            metrics = await ExportMetricsAsync();
-            metrics.Should().Contain("messaging_workers_total{instance=\"Rebus 1\"} 0");
+            return sendTasks;
         }
 
         public void Dispose()
@@ -158,10 +191,10 @@ namespace Rebus.Diagnostics.Prometheus
             return s.Split('\n');
         }
 
-        private static IBus ArrangeBus(IHandlerActivator activator)
+        private static IBus ArrangeBus(IHandlerActivator activator, bool messageMetrics)
         {
             return Configure.With(activator)
-                    .Options(o => o.EnablePrometheusMetrics(options => options.MessageMetrics = true))
+                    .Options(o => o.EnablePrometheusMetrics(options => options.MessageMetrics = messageMetrics))
                     .Routing(r => r.TypeBased().MapFallback("queue"))
                     .Transport(t => t.UseInMemoryTransport(new InMemNetwork(), "queue"))
                     .Subscriptions(s => s.StoreInMemory(new InMemorySubscriberStore()))

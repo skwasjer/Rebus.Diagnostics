@@ -2,8 +2,11 @@
 using System.Threading.Tasks;
 using Prometheus;
 using Rebus.Bus;
+using Rebus.Config;
+using Rebus.Diagnostics.Prometheus.Internal;
 using Rebus.Messages;
 using Rebus.Pipeline;
+using Rebus.Transport;
 
 namespace Rebus.Diagnostics.Prometheus.Steps
 {
@@ -14,10 +17,12 @@ namespace Rebus.Diagnostics.Prometheus.Steps
     public sealed class InstrumentOutgoingStep : IOutgoingStep
     {
         private readonly IMessageCounters _counters;
+        private readonly Options _options;
 
-        internal InstrumentOutgoingStep(IMessageCounters counters)
+        internal InstrumentOutgoingStep(IMessageCounters counters, Options options)
         {
             _counters = counters;
+            _options = options;
         }
 
         /// <inheritdoc />
@@ -25,10 +30,13 @@ namespace Rebus.Diagnostics.Prometheus.Steps
         {
             Message message = context.Load<Message>();
             string messageType = message.GetMessageType();
+            string busName = _options.OptionalBusName ?? BusNameHelper.GetBusName(context.Load<ITransactionContext>());
+            string[] values = { busName, messageType };
 
-            _counters.Total.WithLabels(messageType).Inc();
-            _counters.InFlight.WithLabels(messageType).Inc();
-            ITimer messageInTimer = _counters.Duration.WithLabels(messageType).NewTimer();
+            _counters.Total.WithLabels(values).Inc();
+            Gauge.Child inFlight = _counters.InFlight.WithLabels(values);
+            inFlight.Inc();
+            ITimer messageInTimer = _counters.Duration.WithLabels(values).NewTimer();
 
             try
             {
@@ -36,12 +44,12 @@ namespace Rebus.Diagnostics.Prometheus.Steps
             }
             catch
             {
-                _counters.Errors.WithLabels(messageType).Inc();
+                _counters.Errors.WithLabels(values).Inc();
                 throw;
             }
             finally
             {
-                _counters.InFlight.WithLabels(messageType).Dec();
+                inFlight.Dec();
                 messageInTimer.Dispose();
             }
         }

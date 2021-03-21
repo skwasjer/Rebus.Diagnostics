@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
+using Prometheus;
 using Rebus.Bus;
 using Rebus.Bus.Advanced;
 
@@ -12,14 +13,14 @@ namespace Rebus.Diagnostics.Prometheus
 
         private readonly IAdvancedApi _advancedApi;
         private readonly BusLifetimeEvents _busLifetimeEvents;
-        private readonly string _busName;
+        private readonly Gauge.Child _workersGauge;
         private readonly Timer _periodTimer;
 
         public InstanceMetrics(IAdvancedApi advancedApi, BusLifetimeEvents busLifetimeEvents, string busName)
         {
             _advancedApi = advancedApi;
             _busLifetimeEvents = busLifetimeEvents;
-            _busName = busName;
+            _workersGauge = Counters.Instance.Workers.WithLabels(busName);
 
             _busLifetimeEvents.BusStarting += UpdateMetrics;
             _busLifetimeEvents.BusStarted += UpdateMetrics;
@@ -33,9 +34,7 @@ namespace Rebus.Diagnostics.Prometheus
         private void UpdateMetrics()
         {
             Debug.WriteLine(_advancedApi.Workers.Count);
-            Counters.Instance.Workers
-                .WithLabels(_busName)
-                .Set(_advancedApi.Workers.Count);
+            _workersGauge.Set(_advancedApi.Workers.Count);
         }
 
         public void Dispose()

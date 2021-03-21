@@ -1,6 +1,8 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Prometheus;
+using Rebus.Config;
+using Rebus.Diagnostics.Prometheus.Internal;
 using Rebus.Messages;
 using Rebus.Transport;
 
@@ -9,10 +11,12 @@ namespace Rebus.Diagnostics.Prometheus
     internal class TransportMetrics : ITransport
     {
         private readonly ITransport _decoratee;
+        private readonly Options _options;
 
-        public TransportMetrics(ITransport decoratee)
+        public TransportMetrics(ITransport decoratee, Options options)
         {
             _decoratee = decoratee;
+            _options = options;
         }
 
         public void CreateQueue(string address)
@@ -39,16 +43,19 @@ namespace Rebus.Diagnostics.Prometheus
 
         public string Address => _decoratee.Address;
 
-        private static void InstrumentMessage(ITransactionContext context, IMessageCounters counters)
+        private void InstrumentMessage(ITransactionContext context, IMessageCounters counters)
         {
-            counters.Total.Inc();
-            counters.InFlight.Inc();
-            ITimer messageInTimer = counters.Duration.NewTimer();
+            string busName = _options.OptionalBusName ?? BusNameHelper.GetBusName(context);
 
-            context.OnAborted(_ => counters.Aborted.Inc());
+            counters.Total.WithLabels(busName).Inc();
+            Gauge.Child inFlight = counters.InFlight.WithLabels(busName);
+            inFlight.Inc();
+            ITimer messageInTimer = counters.Duration.WithLabels(busName).NewTimer();
+
+            context.OnAborted(_ => counters.Aborted.WithLabels(busName).Inc());
             context.OnDisposed(_ =>
             {
-                counters.InFlight.Dec();
+                inFlight.Dec();
                 messageInTimer.Dispose();
             });
         }

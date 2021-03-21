@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Rebus.Bus;
 using Rebus.Config;
+using Rebus.Diagnostics.Prometheus.Internal;
 using Rebus.Diagnostics.Prometheus.Steps;
 using Rebus.Pipeline;
 using Rebus.Retry;
@@ -32,7 +33,7 @@ namespace Rebus.Diagnostics.Prometheus
         /// <returns>The <see cref="OptionsConfigurer" /> instance to continue chaining.</returns>
         public static void EnablePrometheusMetrics(this OptionsConfigurer configurer, Action<RebusMetricsOptions> options)
         {
-            configurer.Decorate<ITransport>(ctx => new TransportMetrics(ctx.Get<ITransport>()));
+            configurer.Decorate<ITransport>(ctx => new TransportMetrics(ctx.Get<ITransport>(), ctx.Get<Options>()));
 
             configurer.Decorate(ctx =>
             {
@@ -43,7 +44,7 @@ namespace Rebus.Diagnostics.Prometheus
                 Options busOptions = ctx.Get<Options>();
                 DisposableTracker disposableTracker = ctx.Get<DisposableTracker>();
 
-                string busName = busOptions.OptionalBusName ?? bus.ToString()!.Replace($"{nameof(RebusBus)} ", "");
+                string busName = busOptions.OptionalBusName ?? BusNameHelper.GetBusName(bus);
                 disposableTracker.Add(
                     new InstanceMetrics(
                         bus.Advanced,
@@ -75,11 +76,13 @@ namespace Rebus.Diagnostics.Prometheus
                 return new PipelineStepConcatenator(ctx.Get<IPipeline>())
                     .OnReceive(new InstrumentIncomingStep(
                             Counters.IncomingMessages,
-                            ctx.Get<IErrorTracker>()
+                            ctx.Get<IErrorTracker>(),
+                            ctx.Get<Options>()
                         ),
                         PipelineAbsolutePosition.Front)
                     .OnSend(new InstrumentOutgoingStep(
-                            Counters.OutgoingMessages
+                            Counters.OutgoingMessages,
+                            ctx.Get<Options>()
                         ),
                         PipelineAbsolutePosition.Front
                     );
