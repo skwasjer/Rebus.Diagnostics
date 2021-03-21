@@ -117,6 +117,7 @@ namespace Rebus.Diagnostics.Prometheus
 
             // Wait for all messages to be processed.
             _waitHandle.WaitOne(Debugger.IsAttached ? -1 : 30000);
+            await Task.Delay(500);
 
             metrics = await ExportMetricsAsync();
             metrics.Should()
