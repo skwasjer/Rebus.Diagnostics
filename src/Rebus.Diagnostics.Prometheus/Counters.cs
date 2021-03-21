@@ -1,7 +1,7 @@
 ﻿using System;
 using Prometheus;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     internal static class Counters
     {

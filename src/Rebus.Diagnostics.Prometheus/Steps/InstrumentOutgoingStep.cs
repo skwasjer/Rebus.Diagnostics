@@ -5,7 +5,7 @@ using Rebus.Bus;
 using Rebus.Messages;
 using Rebus.Pipeline;
 
-namespace Rebus.Prometheus.Steps
+namespace Rebus.Diagnostics.Prometheus.Steps
 {
     /// <summary>
     /// Incoming message step that instruments the incoming message.

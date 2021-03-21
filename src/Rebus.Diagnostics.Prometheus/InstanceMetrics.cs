@@ -4,7 +4,7 @@ using System.Threading;
 using Rebus.Bus;
 using Rebus.Bus.Advanced;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     internal sealed class InstanceMetrics : IDisposable
     {

@@ -1,4 +1,4 @@
-﻿namespace Rebus.Prometheus
+﻿namespace Rebus.Diagnostics.Prometheus
 {
     public class TestCommand
     {

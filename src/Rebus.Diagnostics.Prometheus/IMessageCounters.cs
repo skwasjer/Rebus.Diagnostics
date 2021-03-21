@@ -1,6 +1,6 @@
 ﻿using Prometheus;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     internal interface IMessageCounters
     {

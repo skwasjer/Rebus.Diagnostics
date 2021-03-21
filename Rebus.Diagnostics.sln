@@ -23,9 +23,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		GitVersion.yml = GitVersion.yml
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rebus.Prometheus", "src\Rebus.Prometheus\Rebus.Prometheus.csproj", "{19D148BF-50F2-4711-8336-A5929896017F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rebus.Diagnostics.Prometheus", "src\Rebus.Diagnostics.Prometheus\Rebus.Diagnostics.Prometheus.csproj", "{19D148BF-50F2-4711-8336-A5929896017F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rebus.Prometheus.Tests", "test\Rebus.Prometheus.Tests\Rebus.Prometheus.Tests.csproj", "{CAB0BF46-31F1-4C04-9201-96A1E2866E3D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Rebus.Diagnostics.Prometheus.Tests", "test\Rebus.Diagnostics.Prometheus.Tests\Rebus.Diagnostics.Prometheus.Tests.csproj", "{CAB0BF46-31F1-4C04-9201-96A1E2866E3D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -4,7 +4,7 @@ using Prometheus;
 using Rebus.Messages;
 using Rebus.Transport;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     internal class TransportMetrics : ITransport
     {

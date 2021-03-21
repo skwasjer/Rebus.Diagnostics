@@ -17,7 +17,7 @@ using Rebus.Routing.TypeBased;
 using Rebus.Transport.InMem;
 using Xunit;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     public class MetricsIntegrationTests : IDisposable
     {

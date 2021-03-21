@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using Rebus.Bus;
 using Rebus.Config;
+using Rebus.Diagnostics.Prometheus.Steps;
 using Rebus.Pipeline;
-using Rebus.Prometheus.Steps;
 using Rebus.Retry;
 using Rebus.Transport;
 
-namespace Rebus.Prometheus
+namespace Rebus.Diagnostics.Prometheus
 {
     /// <summary>
     /// Rebus extensions to configure/enable Prometheus metrics support.

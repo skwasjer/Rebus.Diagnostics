@@ -10,7 +10,7 @@ using Rebus.Pipeline;
 using Rebus.Retry;
 using Rebus.Retry.Simple;
 
-namespace Rebus.Prometheus.Steps
+namespace Rebus.Diagnostics.Prometheus.Steps
 {
     /// <summary>
     /// Incoming message step that instruments the incoming message.
