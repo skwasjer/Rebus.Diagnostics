@@ -99,7 +99,7 @@ namespace Rebus.Diagnostics.Prometheus
             {
                 foreach (IDisposable disposable in _items)
                 {
-                    disposable?.Dispose();
+                    disposable.Dispose();
                 }
             }
         }
