@@ -7,6 +7,7 @@ namespace Rebus.Prometheus
         Counter Total { get; }
         Gauge InFlight { get; }
         Counter Aborted { get; }
+        Counter Errors { get; }
         Histogram Duration { get; }
     }
 }

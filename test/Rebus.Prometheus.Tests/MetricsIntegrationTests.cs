@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -9,6 +10,7 @@ using Prometheus;
 using Rebus.Activation;
 using Rebus.Bus;
 using Rebus.Config;
+using Rebus.Extensions;
 using Rebus.Persistence.InMem;
 using Rebus.Pipeline;
 using Rebus.Routing.TypeBased;
@@ -39,6 +41,7 @@ namespace Rebus.Prometheus
             const int total = 100;
             int receiveTotal = total;
             var rnd = new Random(DateTime.UtcNow.Ticks.GetHashCode());
+            var failedMessages = new HashSet<int>();
 
             Task HandleMessage(IMessageContext ctx, object message)
             {
@@ -69,12 +72,15 @@ namespace Rebus.Prometheus
                     }
                 });
 
-                if (message is TestCommand && rnd.Next(0, 10) == 0)
+                if (message is TestCommand cmd
+                 && !failedMessages.Contains(cmd.Index)
+                 && (cmd.Index == 30 || cmd.Index == 60))
                 {
+                    failedMessages.Add(cmd.Index);
                     throw new InvalidOperationException();
                 }
 
-                return Task.Delay(rnd.Next(0, 1000));
+                return Task.Delay(rnd.Next(0, 500));
             }
 
             _activator.Handle<TestEvent>((_, ctx, msg) => HandleMessage(ctx, msg));
@@ -89,9 +95,10 @@ namespace Rebus.Prometheus
             int eventCount = 0;
             for (int i = 0; i < total; i++)
             {
-                if (rnd.Next(0, 2) == 0)
+                // 1 in 3 is a command.
+                if (i % 3 == 0)
                 {
-                    sendTasks[i] = bus.Send(new TestCommand());
+                    sendTasks[i] = bus.Send(new TestCommand { Index = i });
                     cmdCount++;
                 }
                 else
@@ -118,11 +125,16 @@ namespace Rebus.Prometheus
                 .And.Contain($"messaging_outgoing_duration_seconds_count {total}")
                 .And.Contain("messaging_outgoing_in_flight_total 0")
                 .And.ContainMatch("messaging_outgoing_duration_seconds_sum *")
+                .And.Contain($"messaging_outgoing_type_total{{type=\"{typeof(TestEvent).GetSimpleAssemblyQualifiedName()}\"}} 66")
+                .And.Contain($"messaging_outgoing_type_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} 34")
                 .And.Contain($"messaging_incoming_total {cmdSuccess + receiveErrors + eventSuccess}")
                 .And.Contain($"messaging_incoming_duration_seconds_count {receiveTotal}")
                 .And.Contain("messaging_incoming_in_flight_total 0")
                 .And.Contain($"messaging_incoming_aborted_total {receiveErrors}")
                 .And.ContainMatch("messaging_incoming_duration_seconds_sum *")
+                .And.Contain($"messaging_incoming_type_total{{type=\"{typeof(TestEvent).GetSimpleAssemblyQualifiedName()}\"}} {eventCount}")
+                .And.Contain($"messaging_incoming_type_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} {cmdCount + receiveErrors}")
+                .And.Contain($"messaging_incoming_type_error_total{{type=\"{typeof(TestCommand).GetSimpleAssemblyQualifiedName()}\"}} {receiveErrors}")
                 ;
 
             bus.Dispose();
@@ -136,7 +148,7 @@ namespace Rebus.Prometheus
             _activator?.Dispose();
         }
 
-        private async Task<string[]> ExportMetricsAsync()
+        private static async Task<string[]> ExportMetricsAsync()
         {
             await using var ms = new MemoryStream();
             await Metrics.DefaultRegistry.CollectAndExportAsTextAsync(ms);
@@ -144,10 +156,10 @@ namespace Rebus.Prometheus
             return s.Split('\n');
         }
 
-        private static IBus ArrangeBus(BuiltinHandlerActivator activator)
+        private static IBus ArrangeBus(IHandlerActivator activator)
         {
             return Configure.With(activator)
-                    .Options(o => o.EnablePrometheusMetrics())
+                    .Options(o => o.EnablePrometheusMetrics(options => options.MessageMetrics = true))
                     .Routing(r => r.TypeBased().MapFallback("queue"))
                     .Transport(t => t.UseInMemoryTransport(new InMemNetwork(), "queue"))
                     .Subscriptions(s => s.StoreInMemory(new InMemorySubscriberStore()))

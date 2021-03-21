@@ -22,7 +22,7 @@ namespace Rebus.Prometheus
 
         public Task Send(string destinationAddress, TransportMessage message, ITransactionContext context)
         {
-            InstrumentMessage(context, message, Counters.Outgoing);
+            InstrumentMessage(context, message, Counters.OutgoingTransport);
             return _decoratee.Send(destinationAddress, message, context);
         }
 
@@ -31,7 +31,7 @@ namespace Rebus.Prometheus
             TransportMessage message = await _decoratee.Receive(context, cancellationToken);
             if (message is not null)
             {
-                InstrumentMessage(context, message, Counters.Incoming);
+                InstrumentMessage(context, message, Counters.IncomingTransport);
             }
 
             return message;
