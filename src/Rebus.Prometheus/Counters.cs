@@ -4,6 +4,16 @@ namespace Rebus.Prometheus
 {
     internal static class Counters
     {
+        internal static class Instance
+        {
+            private static Gauge? _workers;
+            public static Gauge Workers => _workers ??= Metrics.CreateGauge(
+                "messaging_workers_total",
+                "The total number of workers processing messages.",
+                "instance"
+            );
+        }
+
         private class IncomingCounters : IMessageCounters
         {
             private Counter? _messagesInTotal;

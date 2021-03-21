@@ -102,12 +102,19 @@ namespace Rebus.Prometheus
             }
 
             await Task.WhenAll(sendTasks);
-            _waitHandle.WaitOne(Debugger.IsAttached ? -1 : 30000);
+            await Task.Delay(5);
 
             // Assert
             string[] metrics = await ExportMetricsAsync();
+            metrics.Should().Contain("messaging_workers_total{instance=\"Rebus 1\"} 1");
+
+            // Wait for all messages to be processed.
+            _waitHandle.WaitOne(Debugger.IsAttached ? -1 : 30000);
+
+            metrics = await ExportMetricsAsync();
             metrics.Should()
-                .Contain($"messaging_outgoing_total {cmdCount + eventCount}")
+                .Contain("messaging_workers_total{instance=\"Rebus 1\"} 1")
+                .And.Contain($"messaging_outgoing_total {cmdCount + eventCount}")
                 .And.Contain($"messaging_outgoing_duration_seconds_count {total}")
                 .And.Contain("messaging_outgoing_in_flight_total 0")
                 .And.ContainMatch("messaging_outgoing_duration_seconds_sum *")
@@ -117,6 +124,10 @@ namespace Rebus.Prometheus
                 .And.Contain($"messaging_incoming_aborted_total {receiveErrors}")
                 .And.ContainMatch("messaging_incoming_duration_seconds_sum *")
                 ;
+
+            bus.Dispose();
+            metrics = await ExportMetricsAsync();
+            metrics.Should().Contain("messaging_workers_total{instance=\"Rebus 1\"} 0");
         }
 
         public void Dispose()
