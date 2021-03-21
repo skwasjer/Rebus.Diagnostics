@@ -1,11 +1,6 @@
 <Project>
 
   <PropertyGroup>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <WarningsAsErrors>NU1605;CS1591</WarningsAsErrors>
-  </PropertyGroup>
-
-  <PropertyGroup>
     <!-- https://github.com/dotnet/sourcelink -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

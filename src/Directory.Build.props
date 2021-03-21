@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>NU1605;CS1591</WarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <Authors>Martijn Bodeman</Authors>
     <Company></Company>
     <Copyright>Copyright © 2021</Copyright>
