@@ -4,6 +4,8 @@
     <TargetFrameworks>net5.0</TargetFrameworks>
     <RootNamespace>Rebus.Prometheus</RootNamespace>
 
+    <Nullable>enable</Nullable>
+
     <Description></Description>
     <PackageProjectUrl>https://github.com/skwasjer/Rebus.Prometheus</PackageProjectUrl>
     <PackageTags></PackageTags>
