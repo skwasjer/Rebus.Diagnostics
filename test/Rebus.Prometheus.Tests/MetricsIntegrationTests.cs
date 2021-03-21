@@ -150,7 +150,8 @@ namespace Rebus.Prometheus
 
         private static async Task<string[]> ExportMetricsAsync()
         {
-            await using var ms = new MemoryStream();
+            // ReSharper disable once UseAwaitUsing
+            using var ms = new MemoryStream();
             await Metrics.DefaultRegistry.CollectAndExportAsTextAsync(ms);
             string s = Encoding.UTF8.GetString(ms.ToArray());
             return s.Split('\n');
