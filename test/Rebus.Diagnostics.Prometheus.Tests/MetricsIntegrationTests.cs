@@ -21,6 +21,7 @@ using Xunit;
 
 namespace Rebus.Diagnostics.Prometheus
 {
+    [Collection(nameof(DisableParallelization))]
     public class MetricsIntegrationTests : IDisposable
     {
         private readonly BuiltinHandlerActivator _activator;

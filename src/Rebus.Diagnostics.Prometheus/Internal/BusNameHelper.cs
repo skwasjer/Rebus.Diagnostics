@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Reflection;
 using Rebus.Bus;
 using Rebus.Transport;
@@ -9,7 +10,7 @@ namespace Rebus.Diagnostics.Prometheus.Internal
     {
         private const string DefaultBusPreamble = nameof(RebusBus) + " ";
 
-        private static PropertyInfo? _owningBusProperty;
+        private static readonly ConcurrentDictionary<Type, PropertyInfo?> OwningBusPropertyCache = new();
 
         public static string GetBusName(IBus bus)
         {
@@ -45,29 +46,37 @@ namespace Rebus.Diagnostics.Prometheus.Internal
                 return null;
             }
 
-            Type txType = transactionContext.GetType();
-            _owningBusProperty ??= txType.GetProperty(
-                "OwningBus",
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                typeof(IBus),
-                Array.Empty<Type>(),
-                null);
-
-            if (_owningBusProperty is null)
+            PropertyInfo? owningBusProperty = GetOwningBusProperty(transactionContext.GetType());
+            if (owningBusProperty is null)
             {
                 return null;
             }
 
             try
             {
-                var busInstance = (IBus?)_owningBusProperty.GetValue(transactionContext);
+                var busInstance = (IBus?)owningBusProperty.GetValue(transactionContext);
                 return busInstance is null ? null : GetBusNameOrNull(busInstance);
             }
             catch (TargetException)
             {
                 return null;
             }
+        }
+
+        private static PropertyInfo? GetOwningBusProperty(Type txType)
+        {
+            if (OwningBusPropertyCache.TryGetValue(txType, out PropertyInfo? owningBusProperty))
+            {
+                return owningBusProperty;
+            }
+
+            return OwningBusPropertyCache[txType] = txType.GetProperty(
+                "OwningBus",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                typeof(IBus),
+                Array.Empty<Type>(),
+                null);
         }
     }
 }
